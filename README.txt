@@ -18,6 +18,7 @@ The license may be changed without notice.
   Twitter @gatosyocora
 Discord gatosyocora#9575
 
+Translated by Chdata & Eremite
 
 
 日本語(in Japanese)
