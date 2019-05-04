@@ -17,7 +17,7 @@ namespace VRCAvatarEditor
 {
     public class VRCAvatarEditor : EditorWindow
     {
-        private const string TOOL_VERSION = "beta v0.2.3";
+        private const string TOOL_VERSION = "beta v0.2.3 EN";
         private const string TWITTER_ID = "gatosyocora";
         private const string DISCORD_ID = "gatosyocora#9575";
         private const string MANUAL_URL = "https://docs.google.com/document/d/1DU7mP5PTvERqHzZiiCBJ9ep5CilQ1iaXC_3IoiuPEgA/edit?usp=sharing";
@@ -95,14 +95,14 @@ namespace VRCAvatarEditor
 
         private enum ToolFunc
         {
-            アバター情報,
-            表情設定,
+            AvatarInfo,
+            Gestures,
             ProbeAnchor,
             Bounds,
             Shader,
         }
 
-        private ToolFunc currentTool = ToolFunc.アバター情報;
+        private ToolFunc currentTool = ToolFunc.AvatarInfo;
 
         private static class ToolTab
         {
@@ -321,8 +321,8 @@ namespace VRCAvatarEditor
 
         public enum SortType
         {
-            UnSort,
             AToZ,
+            Unsorted,
         }
 
         #endregion
@@ -399,7 +399,7 @@ namespace VRCAvatarEditor
         private const string LICENSE_FILE_PATH = EDITOR_FOLDER_PATH + "LICENSE.txt";
         private const string README_FILE_PATH = EDITOR_FOLDER_PATH + "README.txt";
         private const string USING_SOFTWARE_LICENSE_FILE_PATH = EDITOR_FOLDER_PATH + "USING_SOFTWARE_LICENSES.txt";
-        private readonly string[] TOOL_FUNCS = { "Avatar Monitor", "SunLight Rotator", "FaceEmotion Creator", "HandPose Adder", "ProbeAnchor Setter", "MeshBounds Setter", "Shader Checker", "HumanoidPose Resetter" };
+        private readonly string[] TOOL_FUNCS = { "Avatar Monitor", "SunLight Rotator", "Gesture Creator", "HandPose Adder", "ProbeAnchor Setter", "MeshBounds Setter", "Shader Checker", "HumanoidPose Resetter" };
         private string licenseText;
         private string readmeText;
         private string usingSoftwareLicenseText;
@@ -421,7 +421,7 @@ namespace VRCAvatarEditor
         public enum LayoutType
         {
             Default,
-            Half,
+            SideBySide,
         }
 
         #endregion
@@ -435,7 +435,7 @@ namespace VRCAvatarEditor
         private bool isGammaCorrection = true;
         private Color monitorBgColor = new Color(0.95f, 0.95f, 0.95f, 1);
 
-        private SortType selectedSortType = SortType.UnSort;
+        private SortType selectedSortType = SortType.AToZ;
         private List<string> blendshapeExclusions = new List<string> { "vrc.v_", "vrc.blink_", "vrc.lowerlid_", "vrc.owerlid_", "mmd" };
 
         private bool isActiveOnlySelectedAvatar = true;
@@ -558,14 +558,14 @@ namespace VRCAvatarEditor
                             }
                         }
 
-                        if (currentTool == ToolFunc.アバター情報)
+                        if (currentTool == ToolFunc.AvatarInfo)
                         {
-                            // アバター情報
+                            // AvatarInfo
                             AvatarInfoGUI();
                         }
-                        else if (currentTool == ToolFunc.表情設定)
+                        else if (currentTool == ToolFunc.Gestures)
                         {
-                            // 表情設定
+                            // Gestures
                             FaceEmotionGUI();
                         }
                         else if (currentTool == ToolFunc.ProbeAnchor)
@@ -584,7 +584,7 @@ namespace VRCAvatarEditor
                             ShaderGUI();
                         }
                     }
-                    // LayoutType: Half
+                    // LayoutType: SideBySide
                     else
                     {
                         using (new EditorGUILayout.HorizontalScope())
@@ -608,7 +608,7 @@ namespace VRCAvatarEditor
                                     }
                                 }
 
-                                if (currentTool == ToolFunc.アバター情報)
+                                if (currentTool == ToolFunc.AvatarInfo)
                                 {
                                     using (new EditorGUILayout.HorizontalScope())
                                     {
@@ -616,14 +616,14 @@ namespace VRCAvatarEditor
                                         AnimationsGUI(option);
                                     }
 
-                                    // アバター情報
+                                    // AvatarInfo
                                     AvatarInfoGUI();
 
                                 }
-                                else if (currentTool == ToolFunc.表情設定)
+                                else if (currentTool == ToolFunc.Gestures)
                                 {
 
-                                    // 表情設定
+                                    // Gestures
                                     FaceEmotionGUI();
                                 }
                                 else if (currentTool == ToolFunc.ProbeAnchor)
@@ -822,11 +822,11 @@ namespace VRCAvatarEditor
                 }
                 else if (edittingAvatar.descriptor == null)
                 {
-                    EditorGUILayout.HelpBox("Not Setting Avatar", MessageType.Warning);
+                    EditorGUILayout.HelpBox("No Avatar Selected", MessageType.Warning);
                 }
                 else
                 {
-                    EditorGUILayout.HelpBox("Not Setting Custom Standing Anims", MessageType.Warning);
+                    EditorGUILayout.HelpBox("No Custom Animation Override Detected in VRC Avatar Descriptor", MessageType.Warning);
                 }
             }
             
@@ -834,7 +834,7 @@ namespace VRCAvatarEditor
 
         private void AvatarInfoGUI()
         {
-            #region アバター情報
+            #region AvatarInfo
             if (edittingAvatar.descriptor != null)
             {
                 // 性別
@@ -884,7 +884,7 @@ namespace VRCAvatarEditor
 
         private void FaceEmotionGUI()
         {
-            EditorGUILayout.LabelField("表情設定", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Gestures", EditorStyles.boldLabel);
 
             using (new EditorGUILayout.VerticalScope(GUI.skin.box))
             {
@@ -985,7 +985,7 @@ namespace VRCAvatarEditor
                     }
                 }
 
-                EditorGUILayout.HelpBox("Reset Allを押すとチェックをいれているすべてのシェイプキーの値が最低値になります", MessageType.Warning);
+                EditorGUILayout.HelpBox("Notice: The \"Reset All\" button will set all selected blendshapes to 0.", MessageType.Warning);
 
             }
         }
@@ -1056,7 +1056,7 @@ namespace VRCAvatarEditor
                                 }
                             }
                                 
-                            EditorGUILayout.HelpBox("チェックがついているメッシュのProbeAnchorが設定されます", MessageType.Info);
+                            EditorGUILayout.HelpBox("Probe Anchor will be set to the selected mesh. You can change where the avatar samples light probes and reflection probes.\nFor example, if you have multiple meshes, you may want to set the probe anchor to your hips. (Or merge your meshes).", MessageType.Info);
                         }
                     }
                 }
@@ -1153,7 +1153,7 @@ namespace VRCAvatarEditor
 
             EditorGUILayout.Space();
 
-            if (GUILayout.Button("オンラインマニュアル"))
+            if (GUILayout.Button("Online Manual (JP)"))
                 Application.OpenURL(MANUAL_URL);
 
             EditorGUILayout.Space();
@@ -1226,12 +1226,16 @@ namespace VRCAvatarEditor
                 }
                 EditorGUILayout.EndScrollView();
             }
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.LabelField("Translated by Chdata & Eremite");
         }
 
         private void SettingGUI()
         {
 
-            EditorGUILayout.HelpBox("設定は変更後からウィンドウを閉じるまで適用されます。「Save Setting」で次回以降も適用されます", MessageType.Info);
+            EditorGUILayout.HelpBox("Changes are applied until you close the editor. Press \"Save Settings\" to retain any changes.", MessageType.Info);
 
             EditorGUILayout.LabelField("AvatarMonitor", EditorStyles.boldLabel);
             defaultZoomDist = EditorGUILayout.FloatField("Default Camera Distance", defaultZoomDist);
@@ -1239,15 +1243,15 @@ namespace VRCAvatarEditor
             zoomStepDist = EditorGUILayout.FloatField("Camera Zoom Step Distance", zoomStepDist);
 
             EditorGUILayout.Space();
-            isGammaCorrection = EditorGUILayout.ToggleLeft("ガンマ補正", isGammaCorrection);
+            isGammaCorrection = EditorGUILayout.ToggleLeft("Gamma Correction", isGammaCorrection);
 
             using (var check = new EditorGUI.ChangeCheckScope())
             {
-                monitorBgColor = EditorGUILayout.ColorField("モニター背景色", monitorBgColor);
+                monitorBgColor = EditorGUILayout.ColorField("Background Color", monitorBgColor);
                 if (check.changed) SetAvatarCamBgColor(monitorBgColor);
             }
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("FaceEmotion Creator", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Gesture Creator", EditorStyles.boldLabel);
 
             selectedSortType = (SortType)EditorGUILayout.EnumPopup("SortType", selectedSortType);
 
@@ -1276,15 +1280,15 @@ namespace VRCAvatarEditor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Other", EditorStyles.boldLabel);
-            isActiveOnlySelectedAvatar = EditorGUILayout.ToggleLeft("選択中のアバターだけActiveにする", isActiveOnlySelectedAvatar);
+            isActiveOnlySelectedAvatar = EditorGUILayout.ToggleLeft("Make only the selected avatar active", isActiveOnlySelectedAvatar);
 
-            layoutType = (LayoutType)EditorGUILayout.EnumPopup("レイアウト", layoutType);
+            layoutType = (LayoutType)EditorGUILayout.EnumPopup("Layout", layoutType);
 
-            if (GUILayout.Button("Save Setting"))
+            if (GUILayout.Button("Save Settings"))
             {
                 SaveSettingDataToScriptableObject();
             }
-            if (GUILayout.Button("Default Setting"))
+            if (GUILayout.Button("Default Settings"))
             {
                 DeleteMySettingData();
                 LoadSettingDataFromScriptableObject();
@@ -1296,7 +1300,7 @@ namespace VRCAvatarEditor
         {
             MoveAvatarCam();
 
-            if (currentTool == ToolFunc.表情設定)
+            if (currentTool == ToolFunc.Gestures)
             {
                 if (skinnedMeshList != null)
                 {
@@ -1558,7 +1562,7 @@ namespace VRCAvatarEditor
             var childTrans = avatarCam.transform.Find("Main").gameObject.transform;
 
             // 顔にあわせる
-            if (currentTool == ToolFunc.表情設定)
+            if (currentTool == ToolFunc.Gestures)
             {
                 cameraHeight = edittingAvatar.eyePos.y;
                 avatarCam.transform.position = new Vector3(nowPos.x, cameraHeight + avatarPos.y, nowPos.z);
@@ -1679,7 +1683,7 @@ namespace VRCAvatarEditor
             catch (Exception e)
             {
                 // 改行コード
-                text += "読み込みに失敗しました";
+                text += "Failed to read file.";
             }
 
             return text;
