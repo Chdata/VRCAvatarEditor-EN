@@ -33,6 +33,8 @@ namespace VRCAvatarEditor
 
             if (fileName == "") fileName = "face_emotion";
 
+            bool isExclusionKey;
+
             foreach (var skinnedMesh in skinnedMeshList)
             {
                 if (!skinnedMesh.isOpenBlendShapes) continue;
@@ -41,22 +43,35 @@ namespace VRCAvatarEditor
 
                 for (int i = 0; i < skinnedMesh.blendShapeNum; i++)
                 {
-                    var blendshape = skinnedMesh.blendshapes[i];
+                    isExclusionKey = false;
 
-                    if (!blendshape.isExclusion && blendshape.isContains)
+                    AnimationCurve curve = new AnimationCurve();
+
+                    float keyValue = skinnedMesh.renderer.GetBlendShapeWeight(i);
+
+                    // 除外するキーかどうか調べる
+                    foreach (var exclusionWord in exclusions)
                     {
+                        // 除外条件が空なら次の除外条件へ
+                        if (exclusionWord == "") continue;
+                        // 除外条件に一致するまたは含めないとしているキーなら除外するキーとする
+                        if (skinnedMesh.blendshapes[i].name.Contains(exclusionWord) || !skinnedMesh.blendshapes[i].isContains)
+                        {
+                            isExclusionKey = true;
+                            break;
+                        }
+                    }
 
-                        float keyValue = skinnedMesh.renderer.GetBlendShapeWeight(blendshape.id);
+                    if (!isExclusionKey)
+                    {
 
                         Keyframe startKeyframe = new Keyframe(0, keyValue);
                         Keyframe endKeyframe = new Keyframe(1 / 60.0f, keyValue);
 
-                        AnimationCurve curve = new AnimationCurve();
-
                         curve.AddKey(startKeyframe);
                         curve.AddKey(endKeyframe);
 
-                        animClip.SetCurve(path, typeof(SkinnedMeshRenderer), "blendShape." + blendshape.name, curve);
+                        animClip.SetCurve(path, typeof(SkinnedMeshRenderer), "blendShape." + skinnedMesh.blendshapes[i].name, curve);
                     }
 
                 }

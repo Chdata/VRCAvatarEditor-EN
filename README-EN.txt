@@ -1,4 +1,4 @@
-This is an editor extension that supports creation and editing of avatars used in VRChat.
+﻿This is an editor extension that supports creation and editing of avatars used in VRChat.
 
 Please refer to the online manual for detailed instructions such as installation method and explanations of various functions.
 https://docs.google.com/document/d/1DU7mP5PTvERqHzZiiCBJ9ep5CilQ1iaXC_3IoiuPEgA/edit?usp=sharing
@@ -16,4 +16,4 @@ The license may be changed without notice.
 
 ○ Contact information
   Twitter @gatosyocora
-Discord gatosyocora # 9575
+Discord gatosyocora#9575

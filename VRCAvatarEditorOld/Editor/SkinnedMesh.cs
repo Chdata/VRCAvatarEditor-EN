@@ -24,14 +24,12 @@ namespace VRCAvatarEditor
             public int id;
             public string name;
             public bool isContains;
-            public bool isExclusion;
 
             public BlendShape(int id, string name, bool isContains)
             {
                 this.id = id;
                 this.name = name;
                 this.isContains = isContains;
-                this.isExclusion = false;
             }
         }
 
@@ -41,8 +39,8 @@ namespace VRCAvatarEditor
             objName = renderer.gameObject.name;
             blendshapes = GetBlendShapes(renderer);
             blendShapeNum = blendshapes.Count;
-            // 表情のメッシュのみtrueにする
             isOpenBlendShapes = (objName == "Body");
+
         }
 
         /// <summary>
@@ -63,29 +61,6 @@ namespace VRCAvatarEditor
             }
 
             return blendshapes;
-        }
-
-        /// <summary>
-        /// 名前にexclusionWordsが含まれるシェイプキーをリスト一覧表示から除外する設定にする
-        /// </summary>
-        /// <param name="exclusionWords"></param>
-        public void SetExclusionBlendShapesByContains(List<string> exclusionWords)
-        {
-            for (int i = 0; i < blendShapeNum; i++)
-            {
-                blendshapes[i].isExclusion = false;
-
-                // 除外するキーかどうか調べる
-                foreach (var exclusionWord in exclusionWords)
-                {
-                    if (exclusionWord == "") continue;
-                    if ((blendshapes[i].name).Contains(exclusionWord))
-                    {
-                        blendshapes[i].isExclusion = true;
-                        break;
-                    }
-                }
-            }
         }
 
         /// <summary>

@@ -17,50 +17,28 @@ namespace VRCAvatarEditor
 {
     public class VRCAvatarEditor : EditorWindow
     {
-        private const string TOOL_VERSION = "beta v0.2.3";
+        private const string TOOL_VERSION = "beta v0.2.1 EN";
         private const string TWITTER_ID = "gatosyocora";
         private const string DISCORD_ID = "gatosyocora#9575";
         private const string MANUAL_URL = "https://docs.google.com/document/d/1DU7mP5PTvERqHzZiiCBJ9ep5CilQ1iaXC_3IoiuPEgA/edit?usp=sharing";
-        
-        private GameObject avatarCam = null;
-        private RenderTexture avatarCamTexture;
-        private const int CAMERA_ROTATE_ANGLE = 30;
+
+        private GameObject m_avatarCam = null;
+        private RenderTexture m_renderTexture;
 
         // Avatarの情報
-        private class Avatar
-        {
-            public Animator animator { get; set; }
-            public VRC_AvatarDescriptor descriptor { get; set; }
-            public Vector3 eyePos { get; set; }
-            public AnimatorOverrideController standingAnimController { get; set; }
-            public AnimatorOverrideController sittingAnimController { get; set; }
-            public VRC_AvatarDescriptor.AnimationSet sex { get; set; }
-            public string avatarId { get; set; }
-            public int overridesNum { get; set; }
-            public SkinnedMeshRenderer faceMesh { get; set; }
-            public List<string> lipSyncShapeKeyNames;
-            public List<Material> materials { get; set; }
-            public int triangleCount { get; set; }
-            public int triangleCountInactive { get; set; }
-
-            public Avatar()
-            {
-                animator = null;
-                descriptor = null;
-                eyePos = Vector3.zero;
-                standingAnimController = null;
-                sittingAnimController = null;
-                sex = VRC_AvatarDescriptor.AnimationSet.None;
-                avatarId = "";
-                overridesNum = 0;
-                faceMesh = null;
-                lipSyncShapeKeyNames = null;
-                triangleCount = 0;
-                triangleCountInactive = 0;
-            }
-            
-        };
-        private Avatar edittingAvatar = null;
+        private Animator m_animator;
+        private VRC_AvatarDescriptor m_avatar;
+        private Vector3 m_eyePos;
+        private AnimatorOverrideController standingAnimController;
+        private AnimatorOverrideController sittingAnimController;
+        private VRC_AvatarDescriptor.AnimationSet m_sex;
+        private string m_avatarId = "";
+        private int m_overridesNum = 0;
+        private PipelineManager m_pipe;
+        private SkinnedMeshRenderer m_faceMesh;
+        private List<Material> m_materials;
+        private int m_triangleCount;
+        private int m_triangleCountInactive;
 
         private const string EDITOR_FOLDER_PATH = "Assets/VRCAvatarEditor/";
         private const string ORIGIN_FOLDER_PATH = EDITOR_FOLDER_PATH + "Origins/";
@@ -95,14 +73,14 @@ namespace VRCAvatarEditor
 
         private enum ToolFunc
         {
-            アバター情報,
-            表情設定,
+            AvatarInfo,
+            Gestures,
             ProbeAnchor,
             Bounds,
             Shader,
         }
 
-        private ToolFunc currentTool = ToolFunc.アバター情報;
+        private ToolFunc currentTool = ToolFunc.AvatarInfo;
 
         private static class ToolTab
         {
@@ -293,7 +271,7 @@ namespace VRCAvatarEditor
 
         private float zoomLevel = 1.0f;
         
-        private Light sceneLight;
+        private Light m_light;
         private bool isLightPressing = false;
 
         private Texture upDownTexture;
@@ -310,9 +288,9 @@ namespace VRCAvatarEditor
 
         #region FaceEmotion Variable
 
-        private string animName = "faceAnim";
-        private string saveFolder = EDITOR_FOLDER_PATH + "Animations/";
-        private HandPose.HandPoseType selectedHandAnim = HandPose.HandPoseType.None;
+        private string m_animName = "faceAnim";
+        private string m_saveFolder = EDITOR_FOLDER_PATH + "Animations/";
+        private HandPose.HandPoseType m_selectedHandAnim = HandPose.HandPoseType.None;
 
         private List<SkinnedMesh> skinnedMeshList = null;
         private Vector2 scrollPos = Vector2.zero;
@@ -321,8 +299,8 @@ namespace VRCAvatarEditor
 
         public enum SortType
         {
-            UnSort,
             AToZ,
+            Unsorted,
         }
 
         #endregion
@@ -421,7 +399,7 @@ namespace VRCAvatarEditor
         public enum LayoutType
         {
             Default,
-            Half,
+            SideBySide,
         }
 
         #endregion
@@ -435,7 +413,7 @@ namespace VRCAvatarEditor
         private bool isGammaCorrection = true;
         private Color monitorBgColor = new Color(0.95f, 0.95f, 0.95f, 1);
 
-        private SortType selectedSortType = SortType.UnSort;
+        private SortType selectedSortType = SortType.Unsorted;
         private List<string> blendshapeExclusions = new List<string> { "vrc.v_", "vrc.blink_", "vrc.lowerlid_", "vrc.owerlid_", "mmd" };
 
         private bool isActiveOnlySelectedAvatar = true;
@@ -455,7 +433,7 @@ namespace VRCAvatarEditor
         {
             upDownTexture = AssetDatabase.LoadAssetAtPath<Texture>(ORIGIN_FOLDER_PATH + "UpDown.png");
 
-            avatarCamTexture = AssetDatabase.LoadAssetAtPath<RenderTexture>(ORIGIN_FOLDER_PATH + "AvatarRT.renderTexture");
+            m_renderTexture = AssetDatabase.LoadAssetAtPath<RenderTexture>(ORIGIN_FOLDER_PATH + "AvatarRT.renderTexture");
 
             licenseText = GetFileTexts(LICENSE_FILE_PATH);
 
@@ -463,20 +441,33 @@ namespace VRCAvatarEditor
 
             usingSoftwareLicenseText = GetFileTexts(USING_SOFTWARE_LICENSE_FILE_PATH);
 
-            sceneLight = GetDirectionalLight();
+            m_light = GetDirectionalLight();
 
-            edittingAvatar = new Avatar();
-                
-            animName = "faceAnim";
-            saveFolder = EDITOR_FOLDER_PATH + "Animations/";
+            if (m_avatar != null)
+            {
+                m_animator = null;
+                m_avatar = null;
+                m_sex = VRC_AvatarDescriptor.AnimationSet.None;
+                m_avatarId = "";
+                m_overridesNum = 0;
+                m_triangleCount = 0;
+                m_triangleCountInactive = 0;
+                m_faceMesh = null;
 
-            LoadSettingDataFromScriptableObject();
+                standingAnimController = null;
+                sittingAnimController = null;
+
+                m_animName = "faceAnim";
+                m_saveFolder = EDITOR_FOLDER_PATH + "Animations/";
+            }
+
+            LoadSettingData();
         }
 
         private void OnDisable()
         {
-            if (avatarCam != null)
-                UnityEngine.Object.DestroyImmediate(avatarCam);
+            if (m_avatarCam != null)
+                UnityEngine.Object.DestroyImmediate(m_avatarCam);
         }
 
         private void OnGUI()
@@ -490,13 +481,13 @@ namespace VRCAvatarEditor
                     isShowingSetting = false;
                 }
 
-                if (GUILayout.Button("Setting", GUILayout.MinWidth(50)))
+                if (GUILayout.Button("Settings", GUILayout.MinWidth(50)))
                 {
                     isShowingSetting = !isShowingSetting;
                     isShowingToolInfo = false;
 
                     if (!isShowingSetting)
-                        ApplySettingsToEditorGUI();
+                        ApplySettingsToAvatar();
                 }
             }
 
@@ -507,9 +498,9 @@ namespace VRCAvatarEditor
                     // アバター選択
                     using (var check = new EditorGUI.ChangeCheckScope())
                     {
-                        edittingAvatar.descriptor = EditorGUILayout.ObjectField(
+                        m_avatar = EditorGUILayout.ObjectField(
                             "Avatar",
-                            edittingAvatar.descriptor,
+                            m_avatar,
                             typeof(VRC_AvatarDescriptor),
                             true
                         ) as VRC_AvatarDescriptor;
@@ -517,15 +508,15 @@ namespace VRCAvatarEditor
                         if (check.changed)
                         {
                             // アバター変更時の処理
-                            if (edittingAvatar.descriptor != null)
+                            if (m_avatar != null)
                             {
-                                SetAvatarActive(edittingAvatar.descriptor);
+                                SetAvatarActive(m_avatar);
 
-                                GetAvatarInfo(edittingAvatar.descriptor);
+                                GetAvatarInfo(m_avatar);
 
-                                ApplySettingsToEditorGUI();
+                                ApplySettingsToAvatar();
 
-                                SetAvatarCam(edittingAvatar.descriptor.gameObject);
+                                SetAvatarCam(m_avatar.gameObject);
                             }
                         }
                     }
@@ -551,21 +542,18 @@ namespace VRCAvatarEditor
                                 currentTool = (ToolFunc)GUILayout.Toolbar((int)currentTool, ToolTab.TabToggles, ToolTab.TabButtonStyle, ToolTab.TabButtonSize);
                                 GUILayout.FlexibleSpace();
 
-                                if (check.changed)
-                                {
-                                    TabChanged();
-                                }
+                                if (check.changed) MoveAvatarCam();
                             }
                         }
 
-                        if (currentTool == ToolFunc.アバター情報)
+                        if (currentTool == ToolFunc.AvatarInfo)
                         {
-                            // アバター情報
+                            // AvatarInfo
                             AvatarInfoGUI();
                         }
-                        else if (currentTool == ToolFunc.表情設定)
+                        else if (currentTool == ToolFunc.Gestures)
                         {
-                            // 表情設定
+                            // Gestures
                             FaceEmotionGUI();
                         }
                         else if (currentTool == ToolFunc.ProbeAnchor)
@@ -601,14 +589,11 @@ namespace VRCAvatarEditor
                                         // タブを描画する
                                         currentTool = (ToolFunc)GUILayout.Toolbar((int)currentTool, ToolTab.TabToggles, ToolTab.TabButtonStyle, ToolTab.TabButtonSize);
 
-                                        if (check.changed)
-                                        {
-                                            TabChanged();
-                                        }
+                                        if (check.changed) MoveAvatarCam();
                                     }
                                 }
 
-                                if (currentTool == ToolFunc.アバター情報)
+                                if (currentTool == ToolFunc.AvatarInfo)
                                 {
                                     using (new EditorGUILayout.HorizontalScope())
                                     {
@@ -616,14 +601,13 @@ namespace VRCAvatarEditor
                                         AnimationsGUI(option);
                                     }
 
-                                    // アバター情報
+                                    // AvatarInfo
                                     AvatarInfoGUI();
 
                                 }
-                                else if (currentTool == ToolFunc.表情設定)
+                                else if (currentTool == ToolFunc.Gestures)
                                 {
-
-                                    // 表情設定
+                                    // Gestures
                                     FaceEmotionGUI();
                                 }
                                 else if (currentTool == ToolFunc.ProbeAnchor)
@@ -650,7 +634,7 @@ namespace VRCAvatarEditor
                     // ポーズ修正
                     if (GUILayout.Button("Reset Pose"))
                     {
-                        HumanoidPose.ResetPose(edittingAvatar.descriptor.gameObject);
+                        HumanoidPose.ResetPose(m_avatar.gameObject);
                     }
 
                     // アップロード
@@ -684,7 +668,7 @@ namespace VRCAvatarEditor
                     {
                         GUILayout.FlexibleSpace();
                         int eventType = 0;
-                        var delta = GatoGUILayout.MiniMonitor(avatarCamTexture, MonitorSize.x, MonitorSize.y, ref eventType, isGammaCorrection);
+                        var delta = GatoGUILayout.MiniMonitor(m_renderTexture, MonitorSize.x, MonitorSize.y, ref eventType, isGammaCorrection);
                         if (!isLightPressing)
                         {
                             if (eventType == (int)EventType.MouseDrag) RotateAvatarCam(delta);
@@ -699,23 +683,23 @@ namespace VRCAvatarEditor
                     {
                         if (GUILayout.Button("<"))
                         {
-                            if (avatarCam != null)
-                                avatarCam.transform.Rotate(new Vector3(0, CAMERA_ROTATE_ANGLE, 0));
+                            if (m_avatarCam != null)
+                                m_avatarCam.transform.Rotate(new Vector3(0, 30, 0));
                         }
 
                         if (GUILayout.Button("Reset"))
                         {
-                            if (avatarCam != null)
+                            if (m_avatarCam != null)
                             {
-                                avatarCam.transform.localRotation = Quaternion.identity;
+                                m_avatarCam.transform.localRotation = Quaternion.identity;
                                 MoveAvatarCam();
                             }
                         }
 
                         if (GUILayout.Button(">"))
                         {
-                            if (avatarCam != null)
-                                avatarCam.transform.Rotate(new Vector3(0, -CAMERA_ROTATE_ANGLE, 0));
+                            if (m_avatarCam != null)
+                                m_avatarCam.transform.Rotate(new Vector3(0, -30, 0));
                         }
                     }
 
@@ -739,7 +723,7 @@ namespace VRCAvatarEditor
                 using (new GUILayout.HorizontalScope())
                 {
                     GUILayout.FlexibleSpace();
-                    var lightDelta = GatoGUILayout.LightRotater(sceneLight, 50f, 50f, ref isLightPressing);
+                    var lightDelta = GatoGUILayout.LightRotater(m_light, 50f, 50f, ref isLightPressing);
                     RotateLight(lightDelta);
                     GUILayout.FlexibleSpace();
                 }
@@ -777,12 +761,12 @@ namespace VRCAvatarEditor
                 if (_tab == Tab.Standing)
                 {
                     titleText = "Standing Animations";
-                    controller = edittingAvatar.standingAnimController;
+                    controller = standingAnimController;
                 }
                 else
                 {
                     titleText = "Sitting Animations";
-                    controller = edittingAvatar.sittingAnimController;
+                    controller = sittingAnimController;
                 }
 
                 EditorGUILayout.LabelField(titleText, EditorStyles.boldLabel);
@@ -820,13 +804,13 @@ namespace VRCAvatarEditor
                         }
                     }
                 }
-                else if (edittingAvatar.descriptor == null)
+                else if (m_avatar == null)
                 {
-                    EditorGUILayout.HelpBox("Not Setting Avatar", MessageType.Warning);
+                    EditorGUILayout.HelpBox("No Avatar Selected", MessageType.Warning);
                 }
                 else
                 {
-                    EditorGUILayout.HelpBox("Not Setting Custom Standing Anims", MessageType.Warning);
+                    EditorGUILayout.HelpBox("No Custom Animation Override Detected in VRC Avatar Descriptor", MessageType.Warning);
                 }
             }
             
@@ -834,22 +818,22 @@ namespace VRCAvatarEditor
 
         private void AvatarInfoGUI()
         {
-            #region アバター情報
-            if (edittingAvatar.descriptor != null)
+            #region AvatarInfo
+            if (m_avatar != null)
             {
                 // 性別
                 using (var check = new EditorGUI.ChangeCheckScope())
                 {
-                    edittingAvatar.sex = (VRC_AvatarDescriptor.AnimationSet)EditorGUILayout.EnumPopup("Gender", edittingAvatar.sex);
+                    m_sex = (VRC_AvatarDescriptor.AnimationSet)EditorGUILayout.EnumPopup("Gender", m_sex);
 
-                    if (check.changed) edittingAvatar.descriptor.Animations = edittingAvatar.sex;
+                    if (check.changed) m_avatar.Animations = m_sex;
                 }
 
                 // アップロード状態
-                EditorGUILayout.LabelField("Status", (edittingAvatar.avatarId == "") ? "New Avatar" : "Uploaded Avatar");
-                edittingAvatar.animator.runtimeAnimatorController = EditorGUILayout.ObjectField(
+                EditorGUILayout.LabelField("Status", (m_avatarId == "") ? "New Avatar" : "Uploaded Avatar");
+                m_animator.runtimeAnimatorController = EditorGUILayout.ObjectField(
                     "Animator",
-                    edittingAvatar.animator.runtimeAnimatorController,
+                    m_animator.runtimeAnimatorController,
                     typeof(AnimatorOverrideController),
                     true
                 ) as RuntimeAnimatorController;
@@ -857,34 +841,34 @@ namespace VRCAvatarEditor
                 // AnimatorOverrideController
                 using (var check = new EditorGUI.ChangeCheckScope())
                 {
-                    edittingAvatar.standingAnimController = EditorGUILayout.ObjectField(
+                    standingAnimController = EditorGUILayout.ObjectField(
                         "Standing Animations",
-                        edittingAvatar.standingAnimController,
+                        standingAnimController,
                         typeof(AnimatorOverrideController),
                         true
                     ) as AnimatorOverrideController;
-                    edittingAvatar.sittingAnimController = EditorGUILayout.ObjectField(
+                    sittingAnimController = EditorGUILayout.ObjectField(
                         "Sitting Animations",
-                        edittingAvatar.sittingAnimController,
+                        sittingAnimController,
                         typeof(AnimatorOverrideController),
                         true
                     ) as AnimatorOverrideController;
 
                     if (check.changed)
                     {
-                        edittingAvatar.descriptor.CustomStandingAnims = edittingAvatar.standingAnimController;
-                        edittingAvatar.descriptor.CustomSittingAnims = edittingAvatar.sittingAnimController;
+                        m_avatar.CustomStandingAnims = standingAnimController;
+                        m_avatar.CustomSittingAnims = sittingAnimController;
                     }
                 }
 
-                EditorGUILayout.LabelField("Triangles", edittingAvatar.triangleCount + "(" + (edittingAvatar.triangleCount + edittingAvatar.triangleCountInactive) + ")");
+                EditorGUILayout.LabelField("Triangles", m_triangleCount + "(" + (m_triangleCount + m_triangleCountInactive) + ")");
             }
             #endregion
         }
 
         private void FaceEmotionGUI()
         {
-            EditorGUILayout.LabelField("表情設定", EditorStyles.boldLabel);
+            EditorGUILayout.LabelField("Gestures", EditorStyles.boldLabel);
 
             using (new EditorGUILayout.VerticalScope(GUI.skin.box))
             {
@@ -919,8 +903,17 @@ namespace VRCAvatarEditor
 
                                         foreach (var blendshape in skinnedMesh.blendshapes)
                                         {
+                                            isExclusionKey = false;
 
-                                            if (!blendshape.isExclusion)
+                                            // 除外するキーかどうか調べる
+                                            foreach (var exclusionWord in blendshapeExclusions)
+                                            {
+                                                if (exclusionWord == "" || isExclusionKey) continue;
+                                                if ((blendshape.name).Contains(exclusionWord))
+                                                    isExclusionKey = true;
+                                            }
+
+                                            if (!isExclusionKey)
                                             {
                                                 using (new EditorGUILayout.HorizontalScope())
                                                 {
@@ -953,31 +946,29 @@ namespace VRCAvatarEditor
                     }
                 }
 
-                animName = EditorGUILayout.TextField("AnimClipFileName", animName);
+                m_animName = EditorGUILayout.TextField("AnimClipFileName", m_animName);
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.LabelField("AnimClipSaveFolder", saveFolder);
+                    EditorGUILayout.LabelField("AnimClipSaveFolder", m_saveFolder);
 
                     if (GUILayout.Button("Select Folder", GUILayout.Width(100)))
                     {
-                        saveFolder = EditorUtility.OpenFolderPanel("Select saved folder", saveFolder, "");
-                        var match = Regex.Match(saveFolder, @"Assets/.*");
+                        m_saveFolder = EditorUtility.OpenFolderPanel("Select saved folder", m_saveFolder, "");
+                        var match = Regex.Match(m_saveFolder, @"Assets/.*");
                         Debug.Log(match.Value);
-                        saveFolder = match.Value + "/";
-                        if (saveFolder == "/") saveFolder = "Assets/";
+                        m_saveFolder = match.Value + "/";
+                        if (m_saveFolder == "/") m_saveFolder = "Assets/";
                     }
 
                 }
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    selectedHandAnim = (HandPose.HandPoseType)EditorGUILayout.EnumPopup("HandPose", selectedHandAnim);
+                    m_selectedHandAnim = (HandPose.HandPoseType)EditorGUILayout.EnumPopup("HandPose", m_selectedHandAnim);
                     if (GUILayout.Button("Create AnimFile"))
                     {
-                        var animController = edittingAvatar.standingAnimController;
-                        FaceEmotion.CreateAndSetAnimClip(animName, saveFolder, skinnedMeshList, ref animController, selectedHandAnim, blendshapeExclusions);
-                        edittingAvatar.standingAnimController = animController;
+                        FaceEmotion.CreateAndSetAnimClip(m_animName, m_saveFolder, skinnedMeshList, ref standingAnimController, m_selectedHandAnim, blendshapeExclusions);
                     }
                     if (GUILayout.Button("Reset All"))
                     {
@@ -985,7 +976,7 @@ namespace VRCAvatarEditor
                     }
                 }
 
-                EditorGUILayout.HelpBox("Reset Allを押すとチェックをいれているすべてのシェイプキーの値が最低値になります", MessageType.Warning);
+                EditorGUILayout.HelpBox("Notice: The \"Reset All\" button will set ALL blendshapes to 0.", MessageType.Warning);
 
             }
         }
@@ -1004,7 +995,7 @@ namespace VRCAvatarEditor
                 targetPos = (ProbeAnchor.TARGETPOS)EditorGUILayout.EnumPopup("TargetPosition", targetPos);
 
                 // Rendererの一覧を表示
-                if (edittingAvatar.descriptor != null)
+                if (m_avatar != null)
                 {
                     isOpeningRendererList = EditorGUILayout.Foldout(isOpeningRendererList, "Renderer List");
 
@@ -1056,7 +1047,7 @@ namespace VRCAvatarEditor
                                 }
                             }
                                 
-                            EditorGUILayout.HelpBox("チェックがついているメッシュのProbeAnchorが設定されます", MessageType.Info);
+                            EditorGUILayout.HelpBox("Probe Anchor will be set to the selected mesh. You can change where the avatar samples light probes and reflection probes.\nFor example, if you have multiple meshes, you may want to set the probe anchor to your hips. (Or merge your meshes).", MessageType.Info);
                         }
                     }
                 }
@@ -1064,7 +1055,7 @@ namespace VRCAvatarEditor
 
             if (GUILayout.Button("Set ProbeAnchor"))
             {
-                ProbeAnchor.SetProbeAnchor(edittingAvatar.descriptor.gameObject, targetPos, ref skinnedMeshRendererList, ref meshRendererList, isSettingToSkinnedMesh, isSettingToMesh, isGettingSkinnedMeshRenderer, isGettingMeshRenderer);
+                ProbeAnchor.SetProbeAnchor(m_avatar.gameObject, targetPos, ref skinnedMeshRendererList, ref meshRendererList, isSettingToSkinnedMesh, isSettingToMesh, isGettingSkinnedMeshRenderer, isGettingMeshRenderer);
             }
         }
 
@@ -1107,7 +1098,7 @@ namespace VRCAvatarEditor
 
             if (GUILayout.Button("Set Bounds"))
             {
-                MeshBounds.BoundsSetter(edittingAvatar.descriptor.gameObject, exclusions, boundsScale);
+                MeshBounds.BoundsSetter(m_avatar.gameObject, exclusions, boundsScale);
             }
         }
 
@@ -1122,9 +1113,9 @@ namespace VRCAvatarEditor
                     leftScrollPosShader = scrollView.scrollPosition;
                     using (new EditorGUI.IndentLevelScope())
                     {
-                        if (edittingAvatar.materials != null)
+                        if (m_materials != null)
                         {
-                            foreach (var mat in edittingAvatar.materials)
+                            foreach (var mat in m_materials)
                             {
                                 if (mat == null) continue;
                                 if (mat.shader == null) continue;
@@ -1133,10 +1124,6 @@ namespace VRCAvatarEditor
                                 {
                                     EditorGUILayout.LabelField(mat.shader.name);
                                     EditorGUILayout.LabelField("("+mat.name+")");
-                                    if (GUILayout.Button("Select"))
-                                    {
-                                        Selection.activeObject = mat;
-                                    }
                                 }
 
                             }
@@ -1153,7 +1140,7 @@ namespace VRCAvatarEditor
 
             EditorGUILayout.Space();
 
-            if (GUILayout.Button("オンラインマニュアル"))
+            if (GUILayout.Button("Online Manual (JP)"))
                 Application.OpenURL(MANUAL_URL);
 
             EditorGUILayout.Space();
@@ -1226,12 +1213,16 @@ namespace VRCAvatarEditor
                 }
                 EditorGUILayout.EndScrollView();
             }
+
+            EditorGUILayout.Space();
+
+            EditorGUILayout.LabelField("Translated by Chdata & Eremite");
         }
 
         private void SettingGUI()
         {
 
-            EditorGUILayout.HelpBox("設定は変更後からウィンドウを閉じるまで適用されます。「Save Setting」で次回以降も適用されます", MessageType.Info);
+            EditorGUILayout.HelpBox("Changes are applied until you close the editor. Press \"Save Settings\" to retain any changes.", MessageType.Info);
 
             EditorGUILayout.LabelField("AvatarMonitor", EditorStyles.boldLabel);
             defaultZoomDist = EditorGUILayout.FloatField("Default Camera Distance", defaultZoomDist);
@@ -1239,11 +1230,11 @@ namespace VRCAvatarEditor
             zoomStepDist = EditorGUILayout.FloatField("Camera Zoom Step Distance", zoomStepDist);
 
             EditorGUILayout.Space();
-            isGammaCorrection = EditorGUILayout.ToggleLeft("ガンマ補正", isGammaCorrection);
+            isGammaCorrection = EditorGUILayout.ToggleLeft("Gamma Correction", isGammaCorrection);
 
             using (var check = new EditorGUI.ChangeCheckScope())
             {
-                monitorBgColor = EditorGUILayout.ColorField("モニター背景色", monitorBgColor);
+                monitorBgColor = EditorGUILayout.ColorField("Background Color", monitorBgColor);
                 if (check.changed) SetAvatarCamBgColor(monitorBgColor);
             }
             EditorGUILayout.Space();
@@ -1261,7 +1252,7 @@ namespace VRCAvatarEditor
                         using (new GUILayout.HorizontalScope())
                         {
                             blendshapeExclusions[i] =  EditorGUILayout.TextField(blendshapeExclusions[i]);
-                            if (GUILayout.Button("Remove"))
+                            if (GUILayout.Button("Clear"))
                                 blendshapeExclusions.RemoveAt(i);
                         }
                     }
@@ -1276,36 +1267,20 @@ namespace VRCAvatarEditor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Other", EditorStyles.boldLabel);
-            isActiveOnlySelectedAvatar = EditorGUILayout.ToggleLeft("選択中のアバターだけActiveにする", isActiveOnlySelectedAvatar);
+            isActiveOnlySelectedAvatar = EditorGUILayout.ToggleLeft("Make only the selected avatar active", isActiveOnlySelectedAvatar);
 
-            layoutType = (LayoutType)EditorGUILayout.EnumPopup("レイアウト", layoutType);
+            layoutType = (LayoutType)EditorGUILayout.EnumPopup("Layout", layoutType);
 
-            if (GUILayout.Button("Save Setting"))
+            if (GUILayout.Button("Save Settings"))
             {
-                SaveSettingDataToScriptableObject();
+                SaveSettingData();
             }
-            if (GUILayout.Button("Default Setting"))
+            if (GUILayout.Button("Default Settings"))
             {
                 DeleteMySettingData();
-                LoadSettingDataFromScriptableObject();
+                LoadSettingData();
             }
 
-        }
-
-        private void TabChanged()
-        {
-            MoveAvatarCam();
-
-            if (currentTool == ToolFunc.表情設定)
-            {
-                if (skinnedMeshList != null)
-                {
-                    for (int i = 0; i < skinnedMeshList.Count; i++)
-                    {
-                        skinnedMeshList[i].SetExclusionBlendShapesByContains(blendshapeExclusions.Union(edittingAvatar.lipSyncShapeKeyNames).ToList<string>());
-                    }
-                }
-            }
         }
 
         #region General Functions
@@ -1313,7 +1288,7 @@ namespace VRCAvatarEditor
         /// <summary>
         /// 設定情報を読み込む
         /// </summary>
-        private void LoadSettingDataFromScriptableObject()
+        private void LoadSettingData()
         {
             var settingAsset = AssetDatabase.LoadAssetAtPath<SettingData>(ORIGIN_FOLDER_PATH + "CustomSettingData.asset");
 
@@ -1337,7 +1312,7 @@ namespace VRCAvatarEditor
         /// <summary>
         /// 設定情報を保存する
         /// </summary>
-        private void SaveSettingDataToScriptableObject()
+        private void SaveSettingData()
         {
             bool newCreated = false;
             var settingAsset = AssetDatabase.LoadAssetAtPath<SettingData>(ORIGIN_FOLDER_PATH + "CustomSettingData.asset");
@@ -1379,7 +1354,6 @@ namespace VRCAvatarEditor
         /// </summary>
         private void DeleteMySettingData()
         {
-            // 一度読み込んでみて存在するか確認
             var settingAsset = AssetDatabase.LoadAssetAtPath<SettingData>(ORIGIN_FOLDER_PATH + "CustomSettingData.asset");
             if (settingAsset == null) return;
 
@@ -1392,13 +1366,13 @@ namespace VRCAvatarEditor
         /// </summary>
         private void SetAvatarCam(GameObject obj)
         {
-            if (avatarCam != null)
-                DestroyImmediate(avatarCam);
+            if (m_avatarCam != null)
+                DestroyImmediate(m_avatarCam);
 
-            var avatarCam_prefab = AssetDatabase.LoadAssetAtPath<GameObject>(ORIGIN_FOLDER_PATH + "AvatarCam.prefab");
-            avatarCam = PrefabUtility.InstantiatePrefab(avatarCam_prefab) as GameObject;
+            var avatarCam = AssetDatabase.LoadAssetAtPath<GameObject>(ORIGIN_FOLDER_PATH + "AvatarCam.prefab");
+            m_avatarCam = PrefabUtility.InstantiatePrefab(avatarCam) as GameObject;
 
-            if (edittingAvatar.eyePos != null) maxCamHeight = edittingAvatar.eyePos.y;
+            if (m_eyePos != null) maxCamHeight = m_eyePos.y;
 
             SetAvatarCamBgColor(monitorBgColor);
 
@@ -1411,9 +1385,9 @@ namespace VRCAvatarEditor
         /// <param name="col"></param>
         private void SetAvatarCamBgColor(Color col)
         {
-            if (avatarCam == null) return;
+            if (m_avatarCam == null) return;
 
-            var mainTrans = avatarCam.transform.GetChild(0);
+            var mainTrans = m_avatarCam.transform.GetChild(0);
             var camera = mainTrans.GetComponent<Camera>();
             camera.backgroundColor = col;
         }
@@ -1421,44 +1395,35 @@ namespace VRCAvatarEditor
         /// <summary>
         /// アバターの情報を取得する
         /// </summary>
-        private void GetAvatarInfo(VRC_AvatarDescriptor descriptor)
+        private void GetAvatarInfo(VRC_AvatarDescriptor avatar)
         {
-            if (descriptor == null) return;
-
-            var avatarObj = descriptor.gameObject;
-
-            edittingAvatar.animator = avatarObj.GetComponent<Animator>();
-
-            edittingAvatar.eyePos = descriptor.ViewPosition;
-            edittingAvatar.sex = descriptor.Animations;
-
-            edittingAvatar.standingAnimController = descriptor.CustomStandingAnims;
-            edittingAvatar.sittingAnimController = descriptor.CustomSittingAnims;
+            if (avatar == null) return;
             
-            edittingAvatar.avatarId = descriptor.gameObject.GetComponent<PipelineManager>().blueprintId;
+            m_animator = avatar.gameObject.GetComponent<Animator>();
 
-            edittingAvatar.faceMesh = descriptor.VisemeSkinnedMesh;
+            m_eyePos = avatar.ViewPosition;
+            m_sex = avatar.Animations;
 
-            if (edittingAvatar.faceMesh != null && descriptor.lipSync == VRC_AvatarDescriptor.LipSyncStyle.VisemeBlendShape)
-            {
-                edittingAvatar.lipSyncShapeKeyNames = new List<string>();
-                edittingAvatar.lipSyncShapeKeyNames.AddRange(descriptor.VisemeBlendShapes);
-            }
+            standingAnimController = avatar.CustomStandingAnims;
+            sittingAnimController = avatar.CustomSittingAnims;
 
-            edittingAvatar.materials = GetMaterials(avatarObj);
+            m_pipe = avatar.gameObject.GetComponent<PipelineManager>();
+            m_avatarId = m_pipe.blueprintId;
 
-            var triangleCountInactive = edittingAvatar.triangleCountInactive;
-            edittingAvatar.triangleCount = GetAllTrianglesCount(avatarObj, ref triangleCountInactive);
-            edittingAvatar.triangleCountInactive = triangleCountInactive;
+            m_faceMesh = avatar.VisemeSkinnedMesh;
+
+            m_materials = GetMaterials(avatar.gameObject);
+
+            m_triangleCount = GetAllTrianglesCount(avatar.gameObject, ref m_triangleCountInactive);
 
             // FaceEmotion
-            skinnedMeshList = FaceEmotion.GetSkinnedMeshListOfBlendShape(avatarObj);
+            skinnedMeshList = FaceEmotion.GetSkinnedMeshListOfBlendShape(avatar.gameObject);
 
             // ProbeAnchor
-            skinnedMeshRendererList = GetSkinnedMeshList(avatarObj);
+            skinnedMeshRendererList = GetSkinnedMeshList(avatar.gameObject);
             isSettingToSkinnedMesh = new bool[skinnedMeshRendererList.Count];
             for (int i = 0; i < skinnedMeshRendererList.Count; i++) isSettingToSkinnedMesh[i] = true;
-            meshRendererList = GetMeshList(avatarObj);
+            meshRendererList = GetMeshList(avatar.gameObject);
             isSettingToMesh = new bool[meshRendererList.Count];
             for (int i = 0; i < meshRendererList.Count; i++) isSettingToMesh[i] = true;
 
@@ -1467,14 +1432,12 @@ namespace VRCAvatarEditor
         /// <summary>
         /// 設定を反映する
         /// </summary>
-        private void ApplySettingsToEditorGUI()
+        private void ApplySettingsToAvatar()
         {
-            if (edittingAvatar.descriptor == null) return;
+            if (m_avatar == null) return;
 
             foreach (var skinnedMesh in skinnedMeshList)
             {
-                skinnedMesh.SetExclusionBlendShapesByContains(blendshapeExclusions.Union(edittingAvatar.lipSyncShapeKeyNames).ToList<string>());
-
                 if (selectedSortType == SortType.AToZ)
                     skinnedMesh.SortBlendShapes();
                 else
@@ -1551,24 +1514,24 @@ namespace VRCAvatarEditor
         /// </summary>
         private void MoveAvatarCam()
         {
-            if (avatarCam == null || edittingAvatar.descriptor == null) return;
+            if (m_avatarCam == null || m_avatar == null) return;
 
-            var nowPos = avatarCam.transform.position;
-            var avatarPos = edittingAvatar.descriptor.transform.position;
-            var childTrans = avatarCam.transform.Find("Main").gameObject.transform;
+            var nowPos = m_avatarCam.transform.position;
+            var avatarPos = m_avatar.transform.position;
+            var childTrans = m_avatarCam.transform.Find("Main").gameObject.transform;
 
             // 顔にあわせる
-            if (currentTool == ToolFunc.表情設定)
+            if (currentTool == ToolFunc.Gestures)
             {
-                cameraHeight = edittingAvatar.eyePos.y;
-                avatarCam.transform.position = new Vector3(nowPos.x, cameraHeight + avatarPos.y, nowPos.z);
+                cameraHeight = m_eyePos.y;
+                m_avatarCam.transform.position = new Vector3(nowPos.x, cameraHeight + avatarPos.y, nowPos.z);
                 childTrans.localPosition = new Vector3(0, 0, faceZoomDist);
                 camPosZ = faceZoomDist;
             }
             else
             {
                 cameraHeight = (maxCamHeight > 1)?1:maxCamHeight;
-                avatarCam.transform.position = new Vector3(nowPos.x, cameraHeight + avatarPos.y, nowPos.z);
+                m_avatarCam.transform.position = new Vector3(nowPos.x, cameraHeight + avatarPos.y, nowPos.z);
                 childTrans.localPosition = new Vector3(0, 0, defaultZoomDist);
                 camPosZ = defaultZoomDist;
             }
@@ -1582,10 +1545,10 @@ namespace VRCAvatarEditor
         /// <param name="value"></param>
         private void MoveAvatarCamHeight(float value)
         {
-            if (avatarCam == null || edittingAvatar.descriptor == null) return;
-            var nowPos = avatarCam.transform.position;
-            var avatarPos = edittingAvatar.descriptor.transform.position;
-            avatarCam.transform.position = new Vector3(nowPos.x, avatarPos.y + value, nowPos.z);
+            if (m_avatarCam == null || m_avatar == null) return;
+            var nowPos = m_avatarCam.transform.position;
+            var avatarPos = m_avatar.transform.position;
+            m_avatarCam.transform.position = new Vector3(nowPos.x, avatarPos.y + value, nowPos.z);
         }
 
         /// <summary>
@@ -1594,9 +1557,9 @@ namespace VRCAvatarEditor
         /// <param name="delta"></param>
         private void RotateAvatarCam(Vector2 delta)
         {
-            if (avatarCam == null || delta == Vector2.zero) return;
+            if (m_avatarCam == null || delta == Vector2.zero) return;
 
-            avatarCam.transform.Rotate(new Vector3(-delta.y, delta.x, 0));
+            m_avatarCam.transform.Rotate(new Vector3(-delta.y, delta.x, 0));
             Repaint();
         }
 
@@ -1606,9 +1569,9 @@ namespace VRCAvatarEditor
         /// <param name="delta"></param>
         private void ZoomAvatarCam(Vector2 delta, float level)
         {
-            if (avatarCam == null || delta == Vector2.zero) return;
+            if (m_avatarCam == null || delta == Vector2.zero) return;
 
-            var cam = avatarCam.transform.GetChild(0);
+            var cam = m_avatarCam.transform.GetChild(0);
             cam.transform.Translate(new Vector3(0, 0, (float)(-(delta.y/Mathf.Abs(delta.y)) * zoomStepDist)));
             camPosZ = cam.transform.localPosition.z + zoomStepDist * (1 - level);
             Repaint();
@@ -1620,8 +1583,8 @@ namespace VRCAvatarEditor
         /// <param name="delta"></param>
         private void ZoomAvatarCam(float level)
         {
-            if (avatarCam == null) return;
-            var cam = avatarCam.transform.GetChild(0);
+            if (m_avatarCam == null) return;
+            var cam = m_avatarCam.transform.GetChild(0);
             cam.transform.localPosition = new Vector3(0, 0, camPosZ - zoomStepDist * (1-level));
             Repaint();
         }
@@ -1653,9 +1616,9 @@ namespace VRCAvatarEditor
         /// <param name="delta"></param>
         private void RotateLight(Vector2 delta)
         {
-            if (sceneLight == null) return;
+            if (m_light == null) return;
 
-            (sceneLight.gameObject).transform.Rotate(new Vector3(0, 1, 0), -delta.x);
+            (m_light.gameObject).transform.Rotate(new Vector3(0, 1, 0), -delta.x);
             //(m_light.gameObject).transform.Rotate(new Vector3(1, 0, 0), -delta.y);
             Repaint();
         }
@@ -1754,8 +1717,6 @@ namespace VRCAvatarEditor
                     materials.Add(mat);
                 }
             }
-
-            materials = materials.Distinct().ToList<Material>();
 
             return materials;
         }
